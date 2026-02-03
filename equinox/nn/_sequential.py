@@ -58,6 +58,7 @@ class Sequential(StatefulLayer, Generic[Unpack[Layers]]):
         - `layers`: A sequence of [`equinox.Module`][]s.
         """
 
+        # Type checker cannot verify Sequence[Module] -> tuple[Unpack[Layers]]
         self.layers = tuple(layers)  # type: ignore
 
     def is_stateful(self) -> bool:
@@ -103,8 +104,10 @@ class Sequential(StatefulLayer, Generic[Unpack[Layers]]):
             keys = jr.split(key, len(self.layers))
         for layer, key in zip(self.layers, keys):
             if isinstance(layer, StatefulLayer) and layer.is_stateful():
+                # Type checker cannot verify dynamic layer call signatures
                 x, state = layer(x, state=state, key=key)  # type: ignore
             else:
+                # Type checker cannot verify dynamic layer call signatures
                 x = layer(x, key=key)  # type: ignore
         if state is sentinel:
             return x
@@ -113,8 +116,10 @@ class Sequential(StatefulLayer, Generic[Unpack[Layers]]):
 
     def __getitem__(self, i: int | slice) -> Callable:
         if isinstance(i, int):
+            # Type checker cannot determine specific layer type at runtime
             return self.layers[i]  # type: ignore
         elif isinstance(i, slice):
+            # Slicing loses specific generic type information
             return Sequential(self.layers[i])  # type: ignore
         else:
             raise TypeError(f"Indexing with type {type(i)} is not supported")
