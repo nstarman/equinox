@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from typing import Any, overload
+from typing import Any, Generic, overload, TypeVarTuple, Unpack
 
 import jax.random as jr
 from jaxtyping import Array, PRNGKeyArray
@@ -8,6 +8,9 @@ from .._custom_types import sentinel
 from .._module import AbstractClassVar, Module
 from ._misc import named_scope
 from ._stateful import State
+
+
+Layers = TypeVarTuple("Layers")
 
 
 class StatefulLayer(Module):
@@ -39,7 +42,7 @@ class StatefulLayer(Module):
     __call__: AbstractClassVar[Callable]
 
 
-class Sequential(StatefulLayer):
+class Sequential(StatefulLayer, Generic[Unpack[Layers]]):
     """A sequence of [`equinox.Module`][]s applied in order.
 
     !!! note
@@ -47,15 +50,15 @@ class Sequential(StatefulLayer):
         Activation functions can be added by wrapping them in [`equinox.nn.Lambda`][].
     """
 
-    layers: tuple
+    layers: tuple[Unpack[Layers]]
 
-    def __init__(self, layers: Sequence[Callable]):
+    def __init__(self, layers: Sequence[Module]) -> None:
         """**Arguments:**
 
         - `layers`: A sequence of [`equinox.Module`][]s.
         """
 
-        self.layers = tuple(layers)
+        self.layers = tuple(layers)  # type: ignore
 
     def is_stateful(self) -> bool:
         return any(
@@ -100,9 +103,9 @@ class Sequential(StatefulLayer):
             keys = jr.split(key, len(self.layers))
         for layer, key in zip(self.layers, keys):
             if isinstance(layer, StatefulLayer) and layer.is_stateful():
-                x, state = layer(x, state=state, key=key)
+                x, state = layer(x, state=state, key=key)  # type: ignore
             else:
-                x = layer(x, key=key)
+                x = layer(x, key=key)  # type: ignore
         if state is sentinel:
             return x
         else:
@@ -110,9 +113,9 @@ class Sequential(StatefulLayer):
 
     def __getitem__(self, i: int | slice) -> Callable:
         if isinstance(i, int):
-            return self.layers[i]
+            return self.layers[i]  # type: ignore
         elif isinstance(i, slice):
-            return Sequential(self.layers[i])
+            return Sequential(self.layers[i])  # type: ignore
         else:
             raise TypeError(f"Indexing with type {type(i)} is not supported")
 
